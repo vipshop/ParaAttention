@@ -8,8 +8,6 @@ from diffusers.models.autoencoders.vae import DecoderOutput
 import para_attn.primitives as DP
 from para_attn.parallel_vae import init_parallel_vae_mesh
 
-CACHE_T = 2
-
 
 def send_tensor(tensor, dst, group):
     tensor = tensor.contiguous()
@@ -49,7 +47,7 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
         return b
 
     @functools.wraps(vae.__class__._encode)
-    def new__tiled_encode(
+    def new__encode(
         self,
         x: torch.Tensor,
         *args,
@@ -147,10 +145,10 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
             send_tensor(enc, rank + 1, group)
         return enc
 
-    vae._encode = new__tiled_encode.__get__(vae)
+    vae._encode = new__encode.__get__(vae)
 
     @functools.wraps(vae.__class__._decode)
-    def new_tiled_decode(
+    def new__decode(
         self,
         z: torch.Tensor,
         *args,
@@ -249,6 +247,6 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
             return (dec,)
         return DecoderOutput(dec, dec)
 
-    vae._decode = new_tiled_decode.__get__(vae)
+    vae._decode = new__decode.__get__(vae)
 
     return vae
