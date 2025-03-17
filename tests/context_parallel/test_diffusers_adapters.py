@@ -246,6 +246,7 @@ class TestWanVideoPipeline(_TestDiffusionPipeline):
     class Runner(DiffusionPipelineRunner):
         def new_pipe(self, dtype, device):
             from diffusers import WanPipeline
+
             # from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 
             model_id = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"

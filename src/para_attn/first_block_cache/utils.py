@@ -97,6 +97,9 @@ def cache_context(cache_context):
 
 @torch.compiler.disable
 def are_two_tensors_similar(t1, t2, *, threshold, parallelized=False):
+    if threshold <= 0.0:
+        return False
+
     mean_diff = (t1 - t2).abs().mean()
     mean_t1 = t1.abs().mean()
     if parallelized:
