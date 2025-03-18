@@ -15,6 +15,11 @@ class CacheContext:
     buffers: Dict[str, torch.Tensor] = dataclasses.field(default_factory=dict)
     incremental_name_counters: DefaultDict[str, int] = dataclasses.field(default_factory=lambda: defaultdict(int))
 
+    enable_alter_cache: bool = False
+
+    steps: int = -1
+    is_alter_cache: bool = True
+
     def get_incremental_name(self, name=None):
         if name is None:
             name = "default"
@@ -25,7 +30,6 @@ class CacheContext:
     def reset_incremental_names(self):
         self.incremental_name_counters.clear()
 
-    @torch.compiler.disable
     def get_residual_diff_threshold(self):
         residual_diff_threshold = self.residual_diff_threshold
         if isinstance(residual_diff_threshold, torch.Tensor):
@@ -35,16 +39,26 @@ class CacheContext:
     def set_residual_diff_threshold(self, threshold):
         self.residual_diff_threshold = threshold
 
-    @torch.compiler.disable
     def get_buffer(self, name):
+        if self.enable_alter_cache and self.is_alter_cache:
+            name = f"{name}_alter"
         return self.buffers.get(name)
 
-    @torch.compiler.disable
     def set_buffer(self, name, buffer):
+        if self.enable_alter_cache and self.is_alter_cache:
+            name = f"{name}_alter"
         self.buffers[name] = buffer
 
     def clear_buffers(self):
         self.buffers.clear()
+
+    def mark_step_begin(self):
+        if not self.enable_alter_cache:
+            self.steps += 1
+        else:
+            self.is_alter_cache = not self.is_alter_cache
+            if self.is_alter_cache:
+                self.steps += 1
 
 
 @torch.compiler.disable
@@ -66,6 +80,13 @@ def set_buffer(name, buffer):
     cache_context = get_current_cache_context()
     assert cache_context is not None, "cache_context must be set before"
     cache_context.set_buffer(name, buffer)
+
+
+@torch.compiler.disable
+def mark_step_begin():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    cache_context.mark_step_begin()
 
 
 _current_cache_context = None
@@ -156,6 +177,7 @@ class CachedTransformerBlocks(torch.nn.Module):
         self.return_hidden_states_only = return_hidden_states_only
 
     def forward(self, hidden_states, encoder_hidden_states, *args, **kwargs):
+        mark_step_begin()
         original_hidden_states = hidden_states
         first_transformer_block = self.transformer_blocks[0]
         hidden_states = first_transformer_block(hidden_states, encoder_hidden_states, *args, **kwargs)

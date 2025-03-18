@@ -60,7 +60,9 @@ def apply_cache_on_pipe(
 
         @functools.wraps(original_call)
         def new_call(self, *args, **kwargs):
-            with utils.cache_context(utils.create_cache_context(residual_diff_threshold=residual_diff_threshold)):
+            with utils.cache_context(
+                utils.create_cache_context(residual_diff_threshold=residual_diff_threshold, enable_alter_cache=True)
+            ):
                 return original_call(self, *args, **kwargs)
 
         pipe.__class__.__call__ = new_call

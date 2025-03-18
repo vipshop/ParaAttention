@@ -73,6 +73,16 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
         blend_height = tile_latent_min_height - tile_latent_stride_height
         blend_width = tile_latent_min_width - tile_latent_stride_width
 
+        if hasattr(self, "tile_sample_min_height"):
+            tile_sample_min_height = self.tile_sample_min_height
+        else:
+            tile_sample_min_height = self.tile_sample_min_size
+
+        if hasattr(self, "tile_sample_min_width"):
+            tile_sample_min_width = self.tile_sample_min_width
+        else:
+            tile_sample_min_width = self.tile_sample_min_size
+
         # Split x into overlapping tiles and encode them separately.
         # The tiles have an overlap to avoid seams between tiles.
         count = 0
@@ -103,10 +113,10 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
                     # mu, logvar = enc[:, : self.z_dim, :, :, :], enc[:, self.z_dim :, :, :, :]
                     # enc = torch.cat([mu, logvar], dim=1)
                     self.clear_cache()
-                    tile = self.encoder(tile)
+                    # tile = self.encoder(tile)
                 else:
-                    tile = None
-                row.append(tile)
+                    enc = None
+                row.append(enc)
                 count += 1
             rows.append(row)
 
