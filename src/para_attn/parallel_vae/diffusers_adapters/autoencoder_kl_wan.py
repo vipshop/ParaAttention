@@ -87,11 +87,11 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
         # The tiles have an overlap to avoid seams between tiles.
         count = 0
         rows = []
-        for i in range(0, height, self.tile_sample_stride_height):
+        for j in range(0, height, self.tile_sample_stride_height):
             row = []
-            for j in range(0, width, self.tile_sample_stride_width):
+            for k in range(0, width, self.tile_sample_stride_width):
                 if count % world_size == rank:
-                    tile = x[:, :, :, i : i + tile_sample_min_height, j : j + tile_sample_min_width]
+                    tile = x[:, :, :, j : j + tile_sample_min_height, k : k + tile_sample_min_width]
                     self.clear_cache()
                     t = tile.shape[2]
                     iter_ = 1 + (t - 1) // 4
@@ -192,11 +192,11 @@ def parallelize_vae(vae: AutoencoderKLWan, *, mesh=None):
         # The tiles have an overlap to avoid seams between tiles.
         count = 0
         rows = []
-        for i in range(0, height, tile_latent_stride_height):
+        for j in range(0, height, tile_latent_stride_height):
             row = []
-            for j in range(0, width, tile_latent_stride_width):
+            for k in range(0, width, tile_latent_stride_width):
                 if count % world_size == rank:
-                    tile = z[:, :, :, i : i + tile_latent_min_height, j : j + tile_latent_min_width]
+                    tile = z[:, :, :, j : j + tile_latent_min_height, k : k + tile_latent_min_width]
                     tile = self.post_quant_conv(tile)
                     self.clear_cache()
                     iter_ = tile.shape[2]
