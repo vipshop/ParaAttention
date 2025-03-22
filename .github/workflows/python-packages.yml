@@ -1,4 +1,4 @@
-name: python_packages
+name: python-packages
 
 on:
   # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#running-a-workflow-when-a-pull-request-is-approved
