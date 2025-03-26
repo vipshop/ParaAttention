@@ -1,7 +1,7 @@
 import contextlib
 import dataclasses
 from collections import defaultdict
-from typing import DefaultDict, Dict, Union
+from typing import DefaultDict, Dict, List, Optional, Union
 
 import torch
 
@@ -12,11 +12,16 @@ import para_attn.primitives as DP
 class CacheContext:
     residual_diff_threshold: Union[torch.Tensor, float] = 0.0
 
+    slg_layers: Optional[List[int]] = None
+    slg_start: float = 0.0
+    slg_end: float = 0.1
+
     buffers: Dict[str, torch.Tensor] = dataclasses.field(default_factory=dict)
     incremental_name_counters: DefaultDict[str, int] = dataclasses.field(default_factory=lambda: defaultdict(int))
 
     enable_alter_cache: bool = False
 
+    num_inference_steps: int = -1
     steps: int = -1
     is_alter_cache: bool = True
 
@@ -60,6 +65,23 @@ class CacheContext:
             if self.is_alter_cache:
                 self.steps += 1
 
+    def is_slg_enabled(self):
+        return self.slg_layers is not None
+
+    def slg_should_skip_block(self, block_idx):
+        if not self.enable_alter_cache or not self.is_alter_cache:
+            return False
+        if self.slg_layers is None:
+            return False
+        if self.slg_start <= 0.0 and self.slg_end >= 1.0:
+            return False
+        num_inference_steps = self.num_inference_steps
+        assert num_inference_steps >= 0, "num_inference_steps must be non-negative"
+        return (
+            block_idx in self.slg_layers
+            and num_inference_steps * self.slg_start <= self.steps < num_inference_steps * self.slg_end
+        )
+
 
 @torch.compiler.disable
 def get_residual_diff_threshold():
@@ -87,6 +109,20 @@ def mark_step_begin():
     cache_context = get_current_cache_context()
     assert cache_context is not None, "cache_context must be set before"
     cache_context.mark_step_begin()
+
+
+@torch.compiler.disable
+def is_slg_enabled():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.is_slg_enabled()
+
+
+@torch.compiler.disable
+def slg_should_skip_block(block_idx):
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.slg_should_skip_block(block_idx)
 
 
 _current_cache_context = None
@@ -225,19 +261,38 @@ class CachedTransformerBlocks(torch.nn.Module):
     def call_remaining_transformer_blocks(self, hidden_states, encoder_hidden_states, *args, **kwargs):
         original_hidden_states = hidden_states
         original_encoder_hidden_states = encoder_hidden_states
-        for block in self.transformer_blocks[1:]:
-            hidden_states = block(hidden_states, encoder_hidden_states, *args, **kwargs)
-            if not isinstance(hidden_states, torch.Tensor):
-                hidden_states, encoder_hidden_states = hidden_states
-                if not self.return_hidden_states_first:
-                    hidden_states, encoder_hidden_states = encoder_hidden_states, hidden_states
-        if self.single_transformer_blocks is not None:
-            hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
-            for block in self.single_transformer_blocks:
-                hidden_states = block(hidden_states, *args, **kwargs)
-            encoder_hidden_states, hidden_states = hidden_states.split(
-                [encoder_hidden_states.shape[1], hidden_states.shape[1] - encoder_hidden_states.shape[1]], dim=1
-            )
+        if not is_slg_enabled():
+            for block in self.transformer_blocks[1:]:
+                hidden_states = block(hidden_states, encoder_hidden_states, *args, **kwargs)
+                if not isinstance(hidden_states, torch.Tensor):
+                    hidden_states, encoder_hidden_states = hidden_states
+                    if not self.return_hidden_states_first:
+                        hidden_states, encoder_hidden_states = encoder_hidden_states, hidden_states
+            if self.single_transformer_blocks is not None:
+                hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
+                for block in self.single_transformer_blocks:
+                    hidden_states = block(hidden_states, *args, **kwargs)
+                encoder_hidden_states, hidden_states = hidden_states.split(
+                    [encoder_hidden_states.shape[1], hidden_states.shape[1] - encoder_hidden_states.shape[1]], dim=1
+                )
+        else:
+            for i, encoder_block in enumerate(self.transformer_blocks[1:]):
+                if slg_should_skip_block(i + 1):
+                    continue
+                hidden_states = encoder_block(hidden_states, encoder_hidden_states, *args, **kwargs)
+                if not isinstance(hidden_states, torch.Tensor):
+                    hidden_states, encoder_hidden_states = hidden_states
+                    if not self.return_hidden_states_first:
+                        hidden_states, encoder_hidden_states = encoder_hidden_states, hidden_states
+            if self.single_transformer_blocks is not None:
+                hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
+                for i, block in enumerate(self.single_transformer_blocks):
+                    if slg_should_skip_block(len(self.transformer_blocks) + i):
+                        continue
+                    hidden_states = block(hidden_states, *args, **kwargs)
+                encoder_hidden_states, hidden_states = hidden_states.split(
+                    [encoder_hidden_states.shape[1], hidden_states.shape[1] - encoder_hidden_states.shape[1]], dim=1
+                )
 
         # hidden_states_shape = hidden_states.shape
         # encoder_hidden_states_shape = encoder_hidden_states.shape
