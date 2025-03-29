@@ -1,5 +1,11 @@
 # ParaAttention
 
+[Blazing Fast FLUX-dev with LoRAs](https://wavespeed.ai/models/wavespeed-ai/flux-dev-lora)
+
+[Blazing Fast Wan 2.1 T2V with LoRAs](https://wavespeed.ai/models/wavespeed-ai/wan-2.1/t2v-480p)
+
+[Blazing Fast Wan 2.1 I2V with LoRAs](https://wavespeed.ai/models/wavespeed-ai/wan-2.1/i2v-480p)
+
 Context parallel attention that accelerates DiT model inference with dynamic caching,
 supporting both [**Ulysses Style**](https://arxiv.org/abs/2309.14509) and [**Ring Style**](https://arxiv.org/abs/2310.01889) parallelism.
 
