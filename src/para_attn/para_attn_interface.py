@@ -396,7 +396,7 @@ class UnifiedAttnMode(BaseTorchFunctionMode):
     disabled = False
 
     @torch.compiler.disable
-    def __init__(self, mesh=None, *, skip_small_kv=False):
+    def __init__(self, mesh=None, *, skip_small_kv=False, attn_func=None):
         super().__init__()
 
         self._parallel_method = "ulysses"
@@ -425,6 +425,7 @@ class UnifiedAttnMode(BaseTorchFunctionMode):
                 ), "mesh must have ulysses or ring dim"
 
         self._skip_small_kv = skip_small_kv
+        self._attn_func = attn_func
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         kwargs = {} if kwargs is None else kwargs
@@ -468,7 +469,10 @@ class UnifiedAttnMode(BaseTorchFunctionMode):
             if get_force_dispatch_to_custom_ops():
                 out = para_attn_ops.attention_forward(*args, **kwargs)
             else:
-                out = func(*args, **kwargs)
+                attn_func = self._attn_func
+                if attn_func is None:
+                    attn_func = func
+                out = attn_func(*args, **kwargs)
         else:
             raise ValueError(f"Unknown parallel method: {parallel_method}")
 
