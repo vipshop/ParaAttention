@@ -108,7 +108,7 @@ class MPDistRunner:
             begin_time = time.time()
             while True:
                 if timeout is not None and time.time() - begin_time >= timeout:
-                    raise RuntimeError("Timeout occurred")
+                    raise RuntimeError("Timeout during initialization")
                 for rank, (process, exception_queue) in enumerate(zip(processes, exception_queues)):
                     if process.is_alive():
                         if exception_queue.empty():
@@ -202,16 +202,30 @@ class MPDistRunner:
             if timeout is not None:
                 end_time = time.time()
                 duration = end_time - begin_time
-                timeout = max(0, timeout - duration)
-            output = self.output_queue.get(timeout=timeout)
-            exceptions = []
-            for rank, exception_queue in enumerate(self.exception_queues):
-                if (rank == 0 and isinstance(output, ExceptionOutput)) or not exception_queue.empty():
-                    exceptions.append((rank, exception_queue.get()))
-            if exceptions:
-                msg = "\n".join(f"Rank {rank}: {exception}" for rank, exception in exceptions)
-                raise RuntimeError(f"Exceptions occurred:\n{msg}")
-            return output
+                timeout = max(0.0, timeout - duration)
+                if timeout == 0:
+                    raise RuntimeError("Timeout during processing")
+            begin_time = time.time()
+            while True:
+                if timeout is not None and time.time() - begin_time >= timeout:
+                    raise RuntimeError("Timeout during initialization")
+                if self.output_queue.empty():
+                    for rank, process in enumerate(self.processes):
+                        if not process.is_alive():
+                            raise RuntimeError(f"Process {rank} is not alive")
+                    time.sleep(0.0)
+                    continue
+                output = self.output_queue.get()
+                exceptions = []
+                for rank, exception_queue in enumerate(self.exception_queues):
+                    if (rank == 0 and isinstance(output, ExceptionOutput)) or not exception_queue.empty():
+                        exceptions.append((rank, exception_queue.get()))
+                if exceptions:
+                    msg = "\n".join(f"Rank {rank}: {exception}" for rank, exception in exceptions)
+                    raise RuntimeError(f"Exceptions occurred:\n{msg}")
+                if isinstance(output, ExceptionOutput):
+                    raise RuntimeError("Exception occurred")
+                return output
 
     def init_process_group(self):
         if dist.is_initialized():
