@@ -11,6 +11,7 @@ import para_attn.primitives as DP
 @dataclasses.dataclass
 class CacheContext:
     residual_diff_threshold: Union[torch.Tensor, float] = 0.0
+    alter_residual_diff_threshold: Optional[Union[torch.Tensor, float]] = None
 
     slg_layers: Optional[List[int]] = None
     slg_start: float = 0.0
@@ -36,13 +37,13 @@ class CacheContext:
         self.incremental_name_counters.clear()
 
     def get_residual_diff_threshold(self):
-        residual_diff_threshold = self.residual_diff_threshold
+        if self.enable_alter_cache and self.is_alter_cache and self.alter_residual_diff_threshold is not None:
+            residual_diff_threshold = self.alter_residual_diff_threshold
+        else:
+            residual_diff_threshold = self.residual_diff_threshold
         if isinstance(residual_diff_threshold, torch.Tensor):
             residual_diff_threshold = residual_diff_threshold.item()
         return residual_diff_threshold
-
-    def set_residual_diff_threshold(self, threshold):
-        self.residual_diff_threshold = threshold
 
     def get_buffer(self, name):
         if self.enable_alter_cache and self.is_alter_cache:
@@ -155,6 +156,9 @@ def cache_context(cache_context):
 @torch.compiler.disable
 def are_two_tensors_similar(t1, t2, *, threshold, parallelized=False):
     if threshold <= 0.0:
+        return False
+
+    if t1.shape != t2.shape:
         return False
 
     mean_diff = (t1 - t2).abs().mean()
