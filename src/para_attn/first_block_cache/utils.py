@@ -16,7 +16,7 @@ class CacheContext:
 
     enable_alter_cache: bool = False
     num_inference_steps: int = -1
-    warmup_steps: int = 1
+    warmup_steps: int = 0
 
     enable_taylorseer: bool = False
     taylorseer_kwargs: Dict[str, Any] = dataclasses.field(default_factory=dict)
