@@ -74,7 +74,7 @@ def parallelize_transformer(transformer: WanTransformer3DModel, *, mesh=None):
         # rotary_emb is broadcast across the batch dimension
         rotary_emb = DP.get_assigned_chunk(rotary_emb, dim=-2, group=seq_mesh)
 
-        with UnifiedAttnMode(mesh, skip_small_kv=True):
+        with UnifiedAttnMode(mesh):
             hidden_states = self.call_transformer_blocks(
                 hidden_states, encoder_hidden_states, timestep_proj, rotary_emb
             )
