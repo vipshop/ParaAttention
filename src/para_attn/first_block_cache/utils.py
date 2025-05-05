@@ -14,6 +14,8 @@ class CacheContext:
     residual_diff_threshold: Union[torch.Tensor, float] = 0.0
     alter_residual_diff_threshold: Optional[Union[torch.Tensor, float]] = None
 
+    downsample_factor: int = 1
+
     enable_alter_cache: bool = False
     num_inference_steps: int = -1
     warmup_steps: int = 0
@@ -256,14 +258,27 @@ def apply_prev_hidden_states_residual(hidden_states, encoder_hidden_states):
 
 
 @torch.compiler.disable
+def get_downsample_factor():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.downsample_factor
+
+
+@torch.compiler.disable
 def get_can_use_cache(first_hidden_states_residual, parallelized=False):
     if is_in_warmup():
         return False
+    threshold = get_residual_diff_threshold()
+    if threshold <= 0.0:
+        return False
+    downsample_factor = get_downsample_factor()
+    if downsample_factor > 1:
+        first_hidden_states_residual = first_hidden_states_residual[..., ::downsample_factor]
     prev_first_hidden_states_residual = get_first_hidden_states_residual()
     can_use_cache = prev_first_hidden_states_residual is not None and are_two_tensors_similar(
         prev_first_hidden_states_residual,
         first_hidden_states_residual,
-        threshold=get_residual_diff_threshold(),
+        threshold=threshold,
         parallelized=parallelized,
     )
     return can_use_cache
@@ -271,6 +286,10 @@ def get_can_use_cache(first_hidden_states_residual, parallelized=False):
 
 @torch.compiler.disable
 def set_first_hidden_states_residual(first_hidden_states_residual):
+    downsample_factor = get_downsample_factor()
+    if downsample_factor > 1:
+        first_hidden_states_residual = first_hidden_states_residual[..., ::downsample_factor]
+        first_hidden_states_residual = first_hidden_states_residual.contiguous()
     set_buffer("first_hidden_states_residual", first_hidden_states_residual)
 
 

@@ -53,6 +53,7 @@ def apply_cache_on_pipe(
     *,
     shallow_patch: bool = False,
     residual_diff_threshold=0.03,
+    downsample_factor=1,
     slg_layers=None,
     slg_start: float = 0.0,
     slg_end: float = 0.1,
@@ -67,6 +68,7 @@ def apply_cache_on_pipe(
             with utils.cache_context(
                 utils.create_cache_context(
                     residual_diff_threshold=residual_diff_threshold,
+                    downsample_factor=downsample_factor,
                     enable_alter_cache=True,
                     slg_layers=slg_layers,
                     slg_start=slg_start,

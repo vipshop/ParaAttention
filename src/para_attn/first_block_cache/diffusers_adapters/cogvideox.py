@@ -52,6 +52,7 @@ def apply_cache_on_pipe(
     *,
     shallow_patch: bool = False,
     residual_diff_threshold=0.04,
+    downsample_factor=1,
     **kwargs,
 ):
     if not getattr(pipe, "_is_cached", False):
@@ -59,7 +60,12 @@ def apply_cache_on_pipe(
 
         @functools.wraps(original_call)
         def new_call(self, *args, **kwargs):
-            with utils.cache_context(utils.create_cache_context(residual_diff_threshold=residual_diff_threshold)):
+            with utils.cache_context(
+                utils.create_cache_context(
+                    residual_diff_threshold=residual_diff_threshold,
+                    downsample_factor=downsample_factor,
+                )
+            ):
                 return original_call(self, *args, **kwargs)
 
         pipe.__class__.__call__ = new_call
