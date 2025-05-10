@@ -27,7 +27,7 @@ class NewLineFormatter(logging.Formatter):
         return msg
 
 
-_root_logger = logging.getLogger("xfuser")
+_root_logger = logging.getLogger("para_attn")
 _default_handler = None
 _default_file_handler = None
 _inference_log_file_handler = {}
