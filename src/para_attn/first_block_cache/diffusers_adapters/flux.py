@@ -64,6 +64,8 @@ def apply_cache_on_pipe(
 ):
     # NOTE: Split kwargs into cache_kwargs and other_kwargs
     cache_kwargs, kwargs = utils.collect_cache_kwargs(**kwargs)
+    # Update default residual_diff_threshold and downsample_factor
+    # specified for current pipeline
     cache_kwargs["residual_diff_threshold"] = residual_diff_threshold
     cache_kwargs["downsample_factor"] = downsample_factor
     if not getattr(pipe, "_is_cached", False):
