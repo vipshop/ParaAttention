@@ -214,7 +214,6 @@ def collect_cache_kwargs(**kwargs):
     cache_attrs = dataclasses.fields(CacheContext)
     cache_attrs = [attr for attr in cache_attrs if hasattr(CacheContext, attr.name)]
     cache_kwargs = {attr.name: kwargs.pop(attr.name, getattr(CacheContext, attr.name)) for attr in cache_attrs}
-    logger.info(f"Collected FBCache kwargs: {cache_kwargs}")  # once
     return cache_kwargs, kwargs
 
 
