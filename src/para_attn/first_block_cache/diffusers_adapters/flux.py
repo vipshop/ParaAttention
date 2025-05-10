@@ -58,10 +58,14 @@ def apply_cache_on_pipe(
     pipe: DiffusionPipeline,
     *,
     shallow_patch: bool = False,
+    residual_diff_threshold=0.05,
+    downsample_factor=1,
     **kwargs,
 ):
     # NOTE: Split kwargs into cache_kwargs and other_kwargs
     cache_kwargs, kwargs = utils.collect_cache_kwargs(**kwargs)
+    cache_kwargs["residual_diff_threshold"] = residual_diff_threshold
+    cache_kwargs["downsample_factor"] = downsample_factor
     if not getattr(pipe, "_is_cached", False):
         original_call = pipe.__class__.__call__
 
