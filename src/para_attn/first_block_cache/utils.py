@@ -210,7 +210,7 @@ def set_current_cache_context(cache_context=None):
 
 
 def collect_cache_kwargs(default_attrs: dict, **kwargs):
-    # Split kwargs into cache_kwargs and other_kwargs
+    # NOTE: This API will split kwargs into cache_kwargs and other_kwargs
     # default_attrs: specific settings for different pipelines
     cache_attrs = dataclasses.fields(CacheContext)
     cache_attrs = [attr for attr in cache_attrs if hasattr(CacheContext, attr.name)]
