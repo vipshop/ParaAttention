@@ -209,11 +209,19 @@ def set_current_cache_context(cache_context=None):
     _current_cache_context = cache_context
 
 
-def collect_cache_kwargs(**kwargs):
+def collect_cache_kwargs(default_attrs: dict, **kwargs):
     # Split kwargs into cache_kwargs and other_kwargs
+    # default_attrs: specific settings for different pipelines
     cache_attrs = dataclasses.fields(CacheContext)
     cache_attrs = [attr for attr in cache_attrs if hasattr(CacheContext, attr.name)]
     cache_kwargs = {attr.name: kwargs.pop(attr.name, getattr(CacheContext, attr.name)) for attr in cache_attrs}
+
+    assert default_attrs is not None, "default_attrs must be set before"
+    for attr in cache_attrs:
+        if attr.name in default_attrs:
+            cache_kwargs[attr.name] = default_attrs[attr.name]
+
+    logger.info(f"Collected Cache kwargs: {cache_kwargs}")  # once
     return cache_kwargs, kwargs
 
 

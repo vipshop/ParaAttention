@@ -5,9 +5,6 @@ import torch
 from diffusers import DiffusionPipeline, FluxTransformer2DModel
 
 from para_attn.first_block_cache import utils
-from para_attn.logger import init_logger
-
-logger = init_logger(__name__)
 
 
 def apply_cache_on_transformer(
@@ -65,12 +62,11 @@ def apply_cache_on_pipe(
     downsample_factor=1,
     **kwargs,
 ):
-    # NOTE: Split kwargs into cache_kwargs and other_kwargs
-    cache_kwargs, kwargs = utils.collect_cache_kwargs(**kwargs)
-    # Update default settings for Flux pipeline
-    cache_kwargs["residual_diff_threshold"] = residual_diff_threshold
-    cache_kwargs["downsample_factor"] = downsample_factor
-    logger.debug(f"Cache kwargs: {cache_kwargs}, Other kwargs: {kwargs}")
+    cache_kwargs, kwargs = utils.collect_cache_kwargs(
+        default_attrs={"residual_diff_threshold": residual_diff_threshold, "downsample_factor": downsample_factor},
+        **kwargs,
+    )
+
     if not getattr(pipe, "_is_cached", False):
         original_call = pipe.__class__.__call__
 
