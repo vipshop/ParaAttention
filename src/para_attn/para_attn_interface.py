@@ -104,7 +104,21 @@ def ulysses_attn_func(
     scale=None,
     mesh=None,
     attn_func=None,
+    use_sageattn=False,
 ):
+    if use_sageattn:
+        return ulysses_sage_attn_func(
+            query,
+            key,
+            value,
+            attn_mask=attn_mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            scale=scale,
+            mesh=mesh,
+            attn_func=None,
+        )
+
     assert query.ndim == 4, "query must have 4 dimensions, got {}".format(query.ndim)
     assert key.ndim == 4, "key must have 4 dimensions, got {}".format(key.ndim)
     assert value.ndim == 4, "value must have 4 dimensions, got {}".format(value.ndim)
