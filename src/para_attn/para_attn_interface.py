@@ -32,6 +32,12 @@ try:
 except ImportError:
     torch_ring_attention = None
 
+try:
+    from sageattention import sageattn
+except ImportError:
+    sageattn = None
+
+
 __all__ = [
     "UnifiedAttnMode",
     "RingAttnMode",
@@ -114,6 +120,42 @@ def ulysses_attn_func(
         attn_func = F.scaled_dot_product_attention
 
     out = attn_func(query, key, value, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, scale=scale)
+
+    out = _sdpa_output_all_to_all(out, mesh)
+    return out
+
+
+def ulysses_sage_attn_func(
+    query,
+    key,
+    value,
+    attn_mask=None,
+    dropout_p=0.0,
+    is_causal=False,
+    *,
+    scale=None,
+    mesh=None,
+    attn_func=None,
+):
+    assert sageattn is not None, "SageAttention is not available"
+    assert attn_func is None, "attn_func must be None when using sageattn"
+    assert attn_mask is None, "attn_mask is not supported with sageattn"
+    assert dropout_p == 0.0, "dropout_p is not supported with sageattn"
+    assert query.ndim == 4, "query must have 4 dimensions, got {}".format(query.ndim)
+    assert key.ndim == 4, "key must have 4 dimensions, got {}".format(key.ndim)
+    assert value.ndim == 4, "value must have 4 dimensions, got {}".format(value.ndim)
+
+    if mesh is None:
+        mesh = DP.get_group()
+
+    query = _sdpa_input_all_to_all(query, mesh)
+    key = _sdpa_input_all_to_all(key, mesh)
+    value = _sdpa_input_all_to_all(value, mesh)
+
+    if attn_func is None:
+        attn_func = sageattn
+
+    out = attn_func(query, key, value, is_causal=is_causal, sm_scale=scale)
 
     out = _sdpa_output_all_to_all(out, mesh)
     return out
