@@ -39,6 +39,9 @@ class CacheContext:
     executed_steps: int = 0
     is_alter_cache: bool = True
 
+    max_cached_steps: int = -1
+    cached_steps: List[int] = dataclasses.field(default_factory=list)
+
     def __post_init__(self):
         if self.enable_taylorseer:
             self.taylorseer = TaylorSeer(**self.taylorseer_kwargs)
@@ -93,6 +96,14 @@ class CacheContext:
         if self.enable_taylorseer:
             taylorseer = self.get_taylorseer()
             taylorseer.mark_step_begin()
+        if self.get_current_step() == 0:
+            self.cached_steps.clear()
+
+    def add_cached_step(self):
+        self.cached_steps.append(self.get_current_step())
+
+    def get_cached_steps(self):
+        return self.cached_steps.copy()
 
     def get_taylorseer(self):
         if self.enable_alter_cache and self.is_alter_cache:
@@ -156,6 +167,34 @@ def mark_step_begin():
     cache_context = get_current_cache_context()
     assert cache_context is not None, "cache_context must be set before"
     cache_context.mark_step_begin()
+
+
+@torch.compiler.disable
+def get_current_step():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.get_current_step()
+
+
+@torch.compiler.disable
+def get_cached_steps():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.get_cached_steps()
+
+
+@torch.compiler.disable
+def get_max_cached_steps():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    return cache_context.max_cached_steps
+
+
+@torch.compiler.disable
+def add_cached_step():
+    cache_context = get_current_cache_context()
+    assert cache_context is not None, "cache_context must be set before"
+    cache_context.add_cached_step()
 
 
 @torch.compiler.disable
@@ -287,6 +326,10 @@ def get_downsample_factor():
 def get_can_use_cache(first_hidden_states_residual, parallelized=False):
     if is_in_warmup():
         return False
+    cached_steps = get_cached_steps()
+    max_cached_steps = get_max_cached_steps()
+    if max_cached_steps >= 0 and (len(cached_steps) >= max_cached_steps):
+        return False
     threshold = get_residual_diff_threshold()
     if threshold <= 0.0:
         return False
@@ -384,10 +427,12 @@ class CachedTransformerBlocks(torch.nn.Module):
 
         torch._dynamo.graph_break()
         if can_use_cache:
+            add_cached_step()
             del first_hidden_states_residual
             hidden_states, encoder_hidden_states = apply_prev_hidden_states_residual(
                 hidden_states, encoder_hidden_states
             )
+            logger.debug(f"Cached steps: {get_cached_steps()}")  # debug
         else:
             set_first_hidden_states_residual(first_hidden_states_residual)
             del first_hidden_states_residual
