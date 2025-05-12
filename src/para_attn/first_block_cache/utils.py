@@ -260,7 +260,7 @@ def collect_cache_kwargs(default_attrs: dict, **kwargs):
         if attr.name in default_attrs:
             cache_kwargs[attr.name] = default_attrs[attr.name]
 
-    logger.info(f"Collected Cache kwargs: {cache_kwargs}")  # once
+    logger.debug(f"Collected Cache kwargs: {cache_kwargs}")
     return cache_kwargs, kwargs
 
 
@@ -289,6 +289,7 @@ def are_two_tensors_similar(t1, t2, *, threshold, parallelized=False):
         mean_diff = DP.all_reduce_sync(mean_diff, "avg")
         mean_t1 = DP.all_reduce_sync(mean_t1, "avg")
     diff = mean_diff / mean_t1
+    logger.debug(f"First Block Diff: {diff.item()}")
     return diff.item() < threshold
 
 
@@ -432,7 +433,7 @@ class CachedTransformerBlocks(torch.nn.Module):
             hidden_states, encoder_hidden_states = apply_prev_hidden_states_residual(
                 hidden_states, encoder_hidden_states
             )
-            logger.debug(f"Cached steps: {get_cached_steps()}")  # debug
+            logger.debug(f"Cached steps: {get_cached_steps()}")
         else:
             set_first_hidden_states_residual(first_hidden_states_residual)
             del first_hidden_states_residual
