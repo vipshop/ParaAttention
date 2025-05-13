@@ -9,7 +9,7 @@ from para_attn.context_parallel import init_context_parallel_mesh
 from para_attn.para_attn_interface import UnifiedAttnMode
 
 
-def parallelize_transformer(transformer: FluxTransformer2DModel, *, mesh=None):
+def parallelize_transformer(transformer: FluxTransformer2DModel, *, mesh=None, **kwargs):
     if getattr(transformer, "_is_parallelized", False):
         return transformer
 

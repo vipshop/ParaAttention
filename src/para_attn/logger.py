@@ -8,9 +8,9 @@ import sys
 _FORMAT = "%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s"
 _DATE_FORMAT = "%m-%d %H:%M:%S"
 
-_LOG_LEVEL = os.environ.get("LOG_LEVEL", "info")
+_LOG_LEVEL = os.environ.get("PARA_ATTN_LOG_LEVEL", "info")
 _LOG_LEVEL = getattr(logging, _LOG_LEVEL.upper(), 0)
-_LOG_DIR = os.environ.get("LOG_DIR", None)
+_LOG_DIR = os.environ.get("PARA_ATTN_LOG_DIR", None)
 
 
 class NewLineFormatter(logging.Formatter):
